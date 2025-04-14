@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php
+  template:
+    metadata:
+      labels:
+        app: php
+    spec:
+      containers:
+      - name: php
+        image: php:8.2-apache
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: php-source
+          mountPath: /var/www/html
+      volumes:
+      - name: php-source
+        hostPath:
+          path: /path/to/your/project/backend
+          type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-service
+spec:
+  selector:
+    app: php
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
