@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configmap  # Configuración de Nginx
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        root /var/www/html;
+        index index.php index.html;
+        location / {
+            try_files $uri $uri/ =404;
+        }
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_pass php-service:9000;
+            fastcgi_param SCRIPT_FILENAME /var/www/html$fastcgi_script_name;
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config  # HTML, CSS y JS
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>HelpDesk</title>
+        <link rel="stylesheet" href="/css/styles.css">
+    </head>
+    <body>
+        <h1>Tickets</h1>
+        <div id="tickets-container"></div>
+        <script src="/js/app.js"></script>
+    </body>
+    </html>
+  styles.css: |
+    body { font-family: Arial; }
+    .ticket { border: 1px solid #ddd; padding: 15px; margin: 10px; }
+  app.js: |
+    fetch('/api/tickets')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(ticket => {
+          document.getElementById('tickets-container').innerHTML += `
+            <div class="ticket">
+              <h3>${ticket.asunto}</h3>
+              <p>${ticket.descripcion}</p>
+              <small>Estado: ${ticket.estado}</small>
+            </div>`;
+        });
+      });
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: php-config  # Código PHP
+data:
+  index.php: |
+    <?php
+    header('Content-Type: application/json');
+    $conn = new mysqli("mysql-service", "root", "root", "helpdesk");
+    if ($conn->connect_error) die(json_encode(["error" => $conn->connect_error]));
+    $result = $conn->query("SELECT * FROM tickets");
+    echo json_encode($result->fetch_all(MYSQLI_ASSOC));
+    ?>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-config  # Inicialización de MySQL
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS helpdesk;
+    USE helpdesk;
+    CREATE TABLE tickets (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      asunto VARCHAR(100) NOT NULL,
+      descripcion TEXT NOT NULL,
+      estado ENUM('Abierto','En progreso','Cerrado') DEFAULT 'Abierto',
+      fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO tickets (asunto, descripcion, estado) VALUES
+    ('Error en red', 'No hay conexión WiFi', 'Abierto'),
+    ('Impresora no funciona', 'Atascada en la oficina 2', 'En progreso');

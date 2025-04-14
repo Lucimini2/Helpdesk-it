@@ -22,6 +22,14 @@ spec:
           value: "helpdesk"
         ports:
         - containerPort: 3306
+        volumeMounts:
+        - name: mysql-init
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: mysql-init
+        configMap:
+          name: mysql-init-config
+
 ---
 apiVersion: v1
 kind: Service
@@ -34,4 +42,3 @@ spec:
     - protocol: TCP
       port: 3306
       targetPort: 3306
-  clusterIP: None  # Esto permite que los otros pods puedan acceder por nombre (por ejemplo, 'mysql-service')

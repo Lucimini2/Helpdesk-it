@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: php
-        image: php:8.2-fpm  # Cambiado a imagen FPM
+        image: php:8.2-fpm
         ports:
         - containerPort: 9000
         volumeMounts:
@@ -26,33 +26,14 @@ spec:
           name: php-config
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
-  name: php-config
-data:
-  index.php: |
-    <?php
-    header('Content-Type: application/json');
-
-    $conexion = new mysqli("mysql-service", "root", "root", "helpdesk");
-
-    if ($conexion->connect_error) {
-        http_response_code(500);
-        echo json_encode(["error" => "Error de conexión: " . $conexion->connect_error]);
-        exit;
-    }
-
-    $sql = "SELECT * FROM tickets";
-    $resultado = $conexion->query($sql);
-
-    $tickets = [];
-
-    if ($resultado->num_rows > 0) {
-        while ($fila = $resultado->fetch_assoc()) {
-            $tickets[] = $fila;
-        }
-    }
-
-    echo json_encode($tickets);
-    $conexion->close();
-    ?>
+  name: php-service
+spec:
+  type: ClusterIP  # Ideal para port-forward
+  selector:
+    app: php
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
