@@ -1,47 +1,42 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HelpDesk - Gestión de Incidencias</title>
-  <link rel="stylesheet" href="css/styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpDesk - Gestión de Tickets</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <header>
-    <h1>HelpDesk IT</h1>
-    <p>Listado de incidencias registradas</p>
-  </header>
+    <header>
+        <h1>Sistema HelpDesk</h1>
+        <p>Gestor de tickets de soporte técnico</p>
+    </header>
 
-  <main>
-    <section id="tickets-container">
-      <!-- Los tickets se cargarán aquí -->
-    </section>
-  </main>
+    <div id="tickets-container">
+        <!-- Los tickets se cargarán aquí dinámicamente -->
+    </div>
 
-  <script>
-    fetch("http://localhost:8080/index.php")
-      .then(response => response.json())
-      .then(data => {
-        const container = document.getElementById("tickets-container");
-        if (data.length === 0) {
-          container.innerHTML = "<p>No hay tickets registrados.</p>";
-        } else {
-          data.forEach(ticket => {
-            const ticketCard = document.createElement("div");
-            ticketCard.className = "ticket";
-            ticketCard.innerHTML = `
-              <h3>#${ticket.id} - ${ticket.asunto}</h3>
-              <p><strong>Descripción:</strong> ${ticket.descripcion}</p>
-              <p><strong>Estado:</strong> ${ticket.estado}</p>
-              <p><strong>Fecha:</strong> ${ticket.fecha_creacion}</p>
-            `;
-            container.appendChild(ticketCard);
-          });
-        }
-      })
-      .catch(error => {
-        console.error("Error cargando tickets:", error);
-      });
-  </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('http://localhost/api/tickets')
+                .then(response => response.json())
+                .then(tickets => {
+                    const container = document.getElementById('tickets-container');
+                    
+                    tickets.forEach(ticket => {
+                        const ticketElement = document.createElement('div');
+                        ticketElement.className = 'ticket';
+                        ticketElement.innerHTML = `
+                            <h3>${ticket.asunto}</h3>
+                            <p><strong>Descripción:</strong> ${ticket.descripcion}</p>
+                            <p><strong>Estado:</strong> ${ticket.estado}</p>
+                            <p><strong>Fecha:</strong> ${new Date(ticket.fecha_creacion).toLocaleString()}</p>
+                        `;
+                        container.appendChild(ticketElement);
+                    });
+                })
+                .catch(error => console.error('Error al cargar tickets:', error));
+        });
+    </script>
 </body>
 </html>

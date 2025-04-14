@@ -1,12 +1,23 @@
 version: '3.8'
 
 services:
-  web:
-    build: .
+  nginx:
+    image: nginx:latest
     ports:
       - "8080:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend:/var/www/html
     depends_on:
+      - php
       - db
+    networks:
+      - helpdesk-net
+
+  php:
+    build: .
+    volumes:
+      - ./backend:/var/www/html
     networks:
       - helpdesk-net
 

@@ -14,26 +14,45 @@ spec:
     spec:
       containers:
       - name: php
-        image: php:8.2-apache
+        image: php:8.2-fpm  # Cambiado a imagen FPM
         ports:
-        - containerPort: 80
+        - containerPort: 9000
         volumeMounts:
         - name: php-source
           mountPath: /var/www/html
       volumes:
       - name: php-source
-        hostPath:
-          path: /path/to/your/project/backend
-          type: Directory
+        configMap:
+          name: php-config
 ---
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
-  name: php-service
-spec:
-  selector:
-    app: php
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
+  name: php-config
+data:
+  index.php: |
+    <?php
+    header('Content-Type: application/json');
+
+    $conexion = new mysqli("mysql-service", "root", "root", "helpdesk");
+
+    if ($conexion->connect_error) {
+        http_response_code(500);
+        echo json_encode(["error" => "Error de conexión: " . $conexion->connect_error]);
+        exit;
+    }
+
+    $sql = "SELECT * FROM tickets";
+    $resultado = $conexion->query($sql);
+
+    $tickets = [];
+
+    if ($resultado->num_rows > 0) {
+        while ($fila = $resultado->fetch_assoc()) {
+            $tickets[] = $fila;
+        }
+    }
+
+    echo json_encode($tickets);
+    $conexion->close();
+    ?>

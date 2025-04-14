@@ -1,14 +1,17 @@
-# Imagen base con PHP y Apache
-FROM php:8.2-apache
+# Imagen base con PHP-FPM
+FROM php:8.2-fpm
 
-# Instalar extensión mysqli para PHP
-RUN docker-php-ext-install mysqli
+# Instalar dependencias y extensión mysqli
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    zip \
+    && docker-php-ext-install mysqli pdo pdo_mysql
 
-# Copiar el código del backend al directorio raíz de Apache
-COPY backend/ /var/www/html/
+# Crear directorio para la aplicación
+RUN mkdir -p /var/www/html
+
+# Copiar el código PHP
+COPY backend/index.php /var/www/html/
 
 # Dar permisos adecuados
 RUN chown -R www-data:www-data /var/www/html
-
-# Habilitar mod_rewrite si necesitas URLs limpias en el futuro
-RUN a2enmod rewrite
