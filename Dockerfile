@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /var/www/html
 
 # Copiar el código PHP
+COPY backend/api.php /var/www/html/
 COPY backend/index.php /var/www/html/
 
 # Dar permisos adecuados

@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   asunto VARCHAR(100) NOT NULL,
   descripcion TEXT NOT NULL,
   estado ENUM('Abierto', 'En progreso', 'Cerrado') DEFAULT 'Abierto',
-  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Insertar algunos tickets de prueba

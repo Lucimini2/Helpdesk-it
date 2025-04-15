@@ -20,37 +20,47 @@ spec:
         volumeMounts:
         - name: nginx-config
           mountPath: /etc/nginx/conf.d
-        - name: frontend-html
-          mountPath: /var/www/html/index.html
+        - name: admin-html
+          mountPath: /var/www/html/admin/index.html
           subPath: index.html
-        - name: frontend-css
-          mountPath: /var/www/html/css/styles.css
+        - name: admin-css
+          mountPath: /var/www/html/admin/styles.css
           subPath: styles.css
-        - name: frontend-js
-          mountPath: /var/www/html/js/app.js
-          subPath: app.js
+        - name: cliente-html
+          mountPath: /var/www/html/cliente/index.html
+          subPath: index.html
+        - name: cliente-css
+          mountPath: /var/www/html/cliente/styles.css
+          subPath: styles.css
       volumes:
       - name: nginx-config
         configMap:
           name: nginx-configmap
-      - name: frontend-html
+      - name: admin-html
         configMap:
-          name: frontend-config
+          name: frontend-admin-config
           items:
           - key: index.html
             path: index.html
-      - name: frontend-css
+      - name: admin-css
         configMap:
-          name: frontend-config
+          name: frontend-admin-config
           items:
           - key: styles.css
             path: styles.css
-      - name: frontend-js
+      - name: cliente-html
         configMap:
-          name: frontend-config
+          name: frontend-cliente-config
           items:
-          - key: app.js
-            path: app.js
+          - key: index.html
+            path: index.html
+      - name: cliente-css
+        configMap:
+          name: frontend-cliente-config
+          items:
+          - key: styles.css
+            path: styles.css
+
 ---
 apiVersion: v1
 kind: Service
