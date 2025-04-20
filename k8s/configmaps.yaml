@@ -5,36 +5,30 @@ metadata:
 data:
   default.conf: |
     server {
-        listen 80;
-        server_name localhost;
+    listen 80;
+    server_name localhost;
+    root /var/www/html;
+    index index.php index.html;
 
-        root /var/www/html;
-        index index.php index.html;
+    location / {
+        try_files $uri $uri/ =404;
+    }
 
-        location /admin {
-            alias /var/www/html/admin;
-            try_files $uri $uri/ /admin/index.html;
-        }
+    location /admin {
+        alias /var/www/html/frontend/admin;
+        try_files $uri $uri/ /frontend/admin/index.php;
+    }
 
-        location /cliente {
-            alias /var/www/html/cliente;
-            try_files $uri $uri/ /cliente/index.html;
-        }
+    location /cliente {
+        alias /var/www/html/frontend/cliente;
+        try_files $uri $uri/ /frontend/cliente/index.php;
+    }
 
-        location /api {
-            try_files $uri $uri/ /api.php;
-        }
-
-        location ~ \.php$ {
-            include fastcgi_params;
-            fastcgi_pass php-service:9000;
-            fastcgi_index index.php;
-            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        }
-
-        location / {
-            try_files $uri $uri/ =404;
-        }
+    location ~ \.php$ {
+        fastcgi_pass php:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
     }
 
 ---
@@ -43,13 +37,16 @@ kind: ConfigMap
 metadata:
   name: frontend-admin-config
 data:
-  index.html: |
+  index.php: |
+    <?php
+    require_once '/var/www/html/backend/cargar-tickets.php';
+    ?>
     <!DOCTYPE html>
     <html lang="es">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HelpDesk - Panel de Administración</title>
+        <title>Panel Admin - HelpDesk</title>
         <link rel="stylesheet" href="/admin/css/styles.css">
     </head>
     <body>
@@ -59,316 +56,82 @@ data:
         </header>
 
         <div class="admin-controls">
-            <button id="nuevo-ticket">Nuevo Ticket</button>
-            <button id="actualizar">Actualizar Lista</button>
+            <a href="/admin/nuevo-ticket.php" class="button">Nuevo Ticket</a>
         </div>
 
-        <div id="tickets-container">
-            <!-- Los tickets se cargarán aquí dinámicamente -->
+        <div class="tickets-container">
+            <?php echo mostrarTickets(true); ?>
         </div>
-
-        <div id="formulario-ticket" style="display: none;">
-            <h2>Nuevo Ticket</h2>
-            <form id="ticket-form">
-                <div class="form-group">
-                    <label for="asunto">Asunto:</label>
-                    <input type="text" id="asunto" name="asunto" required>
-                </div>
-                <div class="form-group">
-                    <label for="descripcion">Descripción:</label>
-                    <textarea id="descripcion" name="descripcion" required></textarea>
-                </div>
-                <button type="submit">Enviar</button>
-                <button type="button" id="cancelar">Cancelar</button>
-            </form>
-        </div>
-
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Función para cargar tickets
-                function cargarTickets() {
-                    fetch('/api/tickets')
-                        .then(response => response.json())
-                        .then(tickets => {
-                            const container = document.getElementById('tickets-container');
-                            container.innerHTML = '';
-                            
-                            tickets.forEach(ticket => {
-                                const ticketElement = document.createElement('div');
-                                ticketElement.className = 'ticket';
-                                ticketElement.innerHTML = `
-                                    <h3>${ticket.asunto}</h3>
-                                    <p><strong>Descripción:</strong> ${ticket.descripcion}</p>
-                                    <p><strong>Estado:</strong> 
-                                        <select class="estado-select" data-id="${ticket.id}">
-                                            <option value="Abierto" ${ticket.estado === 'Abierto' ? 'selected' : ''}>Abierto</option>
-                                            <option value="En progreso" ${ticket.estado === 'En progreso' ? 'selected' : ''}>En progreso</option>
-                                            <option value="Cerrado" ${ticket.estado === 'Cerrado' ? 'selected' : ''}>Cerrado</option>
-                                        </select>
-                                    </p>
-                                    <p><strong>Fecha creación:</strong> ${new Date(ticket.fecha_creacion).toLocaleString()}</p>
-                                    <p><strong>Fecha actualización:</strong> ${ticket.fecha_actualizacion ? new Date(ticket.fecha_actualizacion).toLocaleString() : 'N/A'}</p>
-                                    <button class="eliminar" data-id="${ticket.id}">Eliminar</button>
-                                `;
-                                container.appendChild(ticketElement);
-                            });
-
-                            // Agregar event listeners para los controles
-                            document.querySelectorAll('.estado-select').forEach(select => {
-                                select.addEventListener('change', function() {
-                                    const ticketId = this.getAttribute('data-id');
-                                    const nuevoEstado = this.value;
-                                    
-                                    fetch(`/api/tickets/${ticketId}`, {
-                                        method: 'PUT',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({ estado: nuevoEstado })
-                                    })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        if(data.success) {
-                                            alert('Estado actualizado correctamente');
-                                            cargarTickets();
-                                        }
-                                    });
-                                });
-                            });
-
-                            document.querySelectorAll('.eliminar').forEach(btn => {
-                                btn.addEventListener('click', function() {
-                                    const ticketId = this.getAttribute('data-id');
-                                    
-                                    if(confirm('¿Estás seguro de eliminar este ticket?')) {
-                                        fetch(`/api/tickets/${ticketId}`, {
-                                            method: 'DELETE'
-                                        })
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            if(data.success) {
-                                                cargarTickets();
-                                            }
-                                        });
-                                    }
-                                });
-                            });
-                        })
-                        .catch(error => console.error('Error al cargar tickets:', error));
-                }
-
-                // Cargar tickets al inicio
-                cargarTickets();
-
-                // Mostrar/ocultar formulario
-                document.getElementById('nuevo-ticket').addEventListener('click', function() {
-                    document.getElementById('formulario-ticket').style.display = 'block';
-                });
-
-                document.getElementById('cancelar').addEventListener('click', function() {
-                    document.getElementById('formulario-ticket').style.display = 'none';
-                    document.getElementById('ticket-form').reset();
-                });
-
-                // Enviar nuevo ticket
-                document.getElementById('ticket-form').addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = {
-                        asunto: document.getElementById('asunto').value,
-                        descripcion: document.getElementById('descripcion').value
-                    };
-
-                    fetch('/api/tickets', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(formData)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if(data.success) {
-                            alert('Ticket creado correctamente');
-                            document.getElementById('ticket-form').reset();
-                            document.getElementById('formulario-ticket').style.display = 'none';
-                            cargarTickets();
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
-                });
-
-                // Botón actualizar
-                document.getElementById('actualizar').addEventListener('click', function() {
-                    cargarTickets();
-                });
-            });
-        </script>
     </body>
     </html>
   styles.css: |
-    /* Estilos específicos para el panel de administración */
-    body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
-    padding: 20px;
-    color: #333;
-    line-height: 1.6;
-    }
-
-    header {
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 20px 0;
-    background-color: #343a40;
-    color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-    font-size: 2.5rem;
-    color: #ffffff;
-    margin-bottom: 10px;
-    }
-
-    p {
-    font-size: 1rem;
-    margin-top: 5px;
-    color: #adb5bd;
-    }
+    @import '../shared/css/common.css';
 
     .admin-controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+        text-align: center;
+        margin-bottom: 2rem;
+        padding: 0 1rem;
     }
 
-    button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.3s;
-    }
-
-    button:hover {
-    background-color: #0056b3;
-    }
-
-    #tickets-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 20px;
+    .tickets-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 1rem;
     }
 
     .ticket {
-    background-color: #fff;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: transform 0.2s ease-in-out;
-    position: relative;
+        background-color: white;
+        border-left: 4px solid #ddd;
+        border-radius: 4px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    .ticket:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    .ticket[data-estado="Abierto"] {
+        border-left-color: #e74c3c;
+    }
+
+    .ticket[data-estado="En progreso"] {
+        border-left-color: #f39c12;
+    }
+
+    .ticket[data-estado="Cerrado"] {
+        border-left-color: #2ecc71;
     }
 
     .ticket h3 {
-    color: #0056b3;
-    margin-bottom: 15px;
-    font-size: 1.3rem;
+        color: #2c3e50;
+        margin-bottom: 0.8rem;
     }
 
     .ticket p {
-    margin-bottom: 10px;
-    font-size: 0.95rem;
-    color: #495057;
+        margin-bottom: 0.5rem;
     }
 
-    .ticket strong {
-    color: #212529;
+    .ticket select {
+        padding: 0.3rem 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: white;
     }
 
-    .estado-select {
-    padding: 5px 8px;
-    border-radius: 4px;
-    border: 1px solid #ced4da;
-    background-color: #f8f9fa;
-    font-size: 0.9rem;
+    .eliminar-ticket {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        background-color: #f8f8f8;
+        border-radius: 4px;
     }
 
-    .eliminar {
-    background-color: #dc3545;
-    margin-top: 15px;
-    width: 100%;
-    padding: 8px;
+    .eliminar-ticket input {
+        margin-right: 0.5rem;
     }
 
-    .eliminar:hover {
-    background-color: #c82333;
-    }
-
-    #formulario-ticket {
-    background-color: #fff;
-    padding: 25px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    margin: 20px auto;
-    max-width: 600px;
-    }
-
-    #formulario-ticket h2 {
-    margin-bottom: 20px;
-    color: #007bff;
-    text-align: center;
-    }
-
-    .form-group {
-    margin-bottom: 20px;
-    }
-
-    .form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #495057;
-    }
-
-    .form-group input,
-    .form-group textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 1rem;
-    }
-
-    .form-group textarea {
-    height: 120px;
-    resize: vertical;
-    }
-
-    #ticket-form button[type="submit"] {
-    background-color: #28a745;
-    margin-right: 10px;
-    }
-
-    #ticket-form button[type="submit"]:hover {
-    background-color: #218838;
-    }
-
-    #ticket-form button[type="button"] {
-    background-color: #6c757d;
-    }
-
-    #ticket-form button[type="button"]:hover {
-    background-color: #5a6268;
+    .form-actions {
+        margin-top: 1.5rem;
+        text-align: right;
     }
 
 ---
@@ -377,270 +140,84 @@ kind: ConfigMap
 metadata:
   name: frontend-cliente-config
 data:
-  index.html: |
+  index.php: |
+    <?php
+    require_once '/var/www/html/backend/cargar-tickets.php';
+    ?>
     <!DOCTYPE html>
     <html lang="es">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HelpDesk - Soporte Técnico</title>
+        <title>Soporte Cliente - HelpDesk</title>
         <link rel="stylesheet" href="/cliente/css/styles.css">
     </head>
     <body>
         <header>
             <h1>Soporte Técnico</h1>
-            <p>Sistema de tickets de ayuda</p>
+            <p>Sistema de gestión de tickets</p>
         </header>
 
         <div class="cliente-controls">
-            <button id="nuevo-ticket">Crear Nuevo Ticket</button>
+            <a href="/cliente/nuevo-ticket.php" class="button">Nuevo Ticket</a>
         </div>
 
-        <div id="tickets-container">
-            <!-- Los tickets se cargarán aquí dinámicamente -->
+        <div class="tickets-container">
+            <?php echo mostrarTickets(false); ?>
         </div>
-
-        <div id="formulario-ticket" style="display: none;">
-            <h2>Nuevo Ticket</h2>
-            <form id="ticket-form">
-                <div class="form-group">
-                    <label for="asunto">Asunto:</label>
-                    <input type="text" id="asunto" name="asunto" required>
-                </div>
-                <div class="form-group">
-                    <label for="descripcion">Descripción:</label>
-                    <textarea id="descripcion" name="descripcion" required></textarea>
-                </div>
-                <button type="submit">Enviar</button>
-                <button type="button" id="cancelar">Cancelar</button>
-            </form>
-        </div>
-
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Función para cargar tickets
-                function cargarTickets() {
-                    fetch('/api/tickets')
-                        .then(response => response.json())
-                        .then(tickets => {
-                            const container = document.getElementById('tickets-container');
-                            container.innerHTML = '';
-                            
-                            tickets.forEach(ticket => {
-                                const ticketElement = document.createElement('div');
-                                ticketElement.className = 'ticket';
-                                ticketElement.innerHTML = `
-                                    <h3>${ticket.asunto}</h3>
-                                    <p><strong>Descripción:</strong> ${ticket.descripcion}</p>
-                                    <p><strong>Estado:</strong> ${ticket.estado}</p>
-                                    <p><strong>Fecha creación:</strong> ${new Date(ticket.fecha_creacion).toLocaleString()}</p>
-                                    <p><strong>Última actualización:</strong> ${ticket.fecha_actualizacion ? new Date(ticket.fecha_actualizacion).toLocaleString() : 'N/A'}</p>
-                                `;
-                                container.appendChild(ticketElement);
-                            });
-                        })
-                        .catch(error => console.error('Error al cargar tickets:', error));
-                }
-
-                // Cargar tickets al inicio
-                cargarTickets();
-
-                // Mostrar/ocultar formulario
-                document.getElementById('nuevo-ticket').addEventListener('click', function() {
-                    document.getElementById('formulario-ticket').style.display = 'block';
-                });
-
-                document.getElementById('cancelar').addEventListener('click', function() {
-                    document.getElementById('formulario-ticket').style.display = 'none';
-                    document.getElementById('ticket-form').reset();
-                });
-
-                // Enviar nuevo ticket
-                document.getElementById('ticket-form').addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = {
-                        asunto: document.getElementById('asunto').value,
-                        descripcion: document.getElementById('descripcion').value
-                    };
-
-                    fetch('/api/tickets', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(formData)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if(data.success) {
-                            alert('Ticket creado correctamente');
-                            document.getElementById('ticket-form').reset();
-                            document.getElementById('formulario-ticket').style.display = 'none';
-                            cargarTickets();
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
-                });
-            });
-        </script>
     </body>
     </html>
   styles.css: |
-    /* Estilos específicos para la vista de cliente */
-    body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #f8f9fa;
-        padding: 20px;
-        color: #333;
-        line-height: 1.6;
-    }
-
-    header {
-        text-align: center;
-        margin-bottom: 30px;
-        padding: 20px 0;
-        background-color: #007bff;
-        color: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-        font-size: 2.5rem;
-        color: #ffffff;
-        margin-bottom: 10px;
-    }
-
-    p {
-        font-size: 1rem;
-        margin-top: 5px;
-        color: #e2edf8;
-    }
+    @import '../shared/css/common.css';
 
     .cliente-controls {
-        margin-bottom: 30px;
         text-align: center;
+        margin: 2rem 0;
     }
 
-    button {
-        background-color: #17a2b8;
-        color: white;
-        border: none;
-        padding: 12px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1rem;
-        transition: background-color 0.3s;
-    }
-
-    button:hover {
-        background-color: #138496;
-    }
-
-    #tickets-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 20px;
+    .tickets-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1rem;
     }
 
     .ticket {
-        background-color: #fff;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: transform 0.2s ease-in-out;
-    }
-
-    .ticket:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        background-color: white;
+        border-left: 4px solid #3498db;
+        border-radius: 4px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .ticket h3 {
-        color: #007bff;
-        margin-bottom: 15px;
-        font-size: 1.3rem;
+        color: #2c3e50;
+        margin-bottom: 0.8rem;
     }
 
     .ticket p {
-        margin-bottom: 10px;
-        font-size: 0.95rem;
-        color: #495057;
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
     }
 
-    .ticket strong {
-        color: #212529;
-    }
-
-    #formulario-ticket {
-        background-color: #fff;
-        padding: 25px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin: 20px auto;
-        max-width: 600px;
-    }
-
-    #formulario-ticket h2 {
-        margin-bottom: 20px;
-        color: #007bff;
-        text-align: center;
-    }
-
-    .form-group {
-        margin-bottom: 20px;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: bold;
-        color: #495057;
-    }
-
-    .form-group input,
-    .form-group textarea {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        font-size: 1rem;
-    }
-
-    .form-group textarea {
-        height: 120px;
-        resize: vertical;
-    }
-
-    #ticket-form button[type="submit"] {
-        background-color: #28a745;
-        margin-right: 10px;
-    }
-
-    #ticket-form button[type="submit"]:hover {
-        background-color: #218838;
-    }
-
-    #ticket-form button[type="button"] {
-        background-color: #6c757d;
-    }
-
-    #ticket-form button[type="button"]:hover {
-        background-color: #5a6268;
-    }
-
-    /* Estado visual de los tickets */
+    /* Estados visuales */
     .ticket[data-estado="Abierto"] {
-        border-left: 5px solid #ffc107;
+        border-left-color: #e74c3c;
     }
 
     .ticket[data-estado="En progreso"] {
-        border-left: 5px solid #17a2b8;
+        border-left-color: #f39c12;
     }
 
     .ticket[data-estado="Cerrado"] {
-        border-left: 5px solid #28a745;
+        border-left-color: #2ecc71;
+        opacity: 0.8;
+    }
+
+    .no-tickets {
+        text-align: center;
+        padding: 2rem;
+        color: #7f8c8d;
     }
 
 ---
@@ -649,115 +226,192 @@ kind: ConfigMap
 metadata:
   name: php-config
 data:
-  api.php: |
-    <?php
-    header('Content-Type: application/json');
+  actualizar-tickets.php: |
+        <?php
+        $conexion = new mysqli("db", "root", "root", "helpdesk");
 
-    // Conexión a la base de datos
+        if ($conexion->connect_error) {
+            die("Error de conexión: " . $conexion->connect_error);
+        }
+
+        // Procesar actualizaciones de estado
+        if (isset($_POST['estados'])) {
+            foreach ($_POST['estados'] as $id => $estado) {
+                $stmt = $conexion->prepare("UPDATE tickets SET estado = ?, fecha_actualizacion = NOW() WHERE id = ?");
+                $stmt->bind_param("si", $estado, $id);
+                $stmt->execute();
+            }
+        }
+
+        // Procesar eliminaciones
+        if (isset($_POST['eliminar'])) {
+            foreach ($_POST['eliminar'] as $id => $valor) {
+                if ($valor == '1') {
+                    $stmt = $conexion->prepare("DELETE FROM tickets WHERE id = ?");
+                    $stmt->bind_param("i", $id);
+                    $stmt->execute();
+                }
+            }
+        }
+
+        header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '/admin/'));
+        exit;
+        ?>
+
+        cargar-tickets.php: |
+        <?php
+        header('Content-Type: text/html; charset=utf-8');
+
+        $conexion = new mysqli(
+        getenv('DB_HOST'), 
+        getenv('DB_USER'), 
+        getenv('DB_PASSWORD'), 
+        getenv('DB_NAME')
+        );
+
+        if ($conexion->connect_error) {
+            die("<div class='error'>Error de conexión: " . $conexion->connect_error . "</div>");
+        }
+
+        $esAdmin = strpos($_SERVER['REQUEST_URI'], '/admin/') !== false;
+        $sql = $esAdmin 
+        ? "SELECT * FROM tickets ORDER BY fecha_creacion DESC" 
+        : "SELECT * FROM tickets WHERE estado IN ('Abierto', 'En progreso') ORDER BY fecha_creacion DESC";
+
+        $resultado = $conexion->query($sql);
+
+        if ($resultado->num_rows > 0): ?>
+        <?php if ($esAdmin): ?>
+        <form action="/backend/actualizar-tickets.php" method="post">
+        <?php endif; ?>
+
+        <?php while ($ticket = $resultado->fetch_assoc()): ?>
+            <div class="ticket" data-estado="<?= htmlspecialchars($ticket['estado']) ?>">
+                <h3><?= htmlspecialchars($ticket['asunto']) ?></h3>
+                <p><strong>Descripción:</strong> <?= nl2br(htmlspecialchars($ticket['descripcion'])) ?></p>
+                <p><strong>Estado:</strong>
+                    <?php if ($esAdmin): ?>
+                    <select name="estados[<?= (int)$ticket['id'] ?>]">
+                        <?php foreach (['Abierto', 'En progreso', 'Cerrado'] as $estado): ?>
+                        <option value="<?= $estado ?>" <?= $ticket['estado'] === $estado ? 'selected' : '' ?>>
+                            <?= $estado ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php else: ?>
+                    <?= htmlspecialchars($ticket['estado']) ?>
+                    <?php endif; ?>
+                </p>
+                <p><strong>Fecha creación:</strong> <?= $ticket['fecha_creacion'] ?></p>
+                <?php if ($ticket['fecha_actualizacion'] && $ticket['fecha_actualizacion'] != $ticket['fecha_creacion']): ?>
+                <p><strong>Última actualización:</strong> <?= $ticket['fecha_actualizacion'] ?></p>
+                <?php endif; ?>
+                
+                <?php if ($esAdmin): ?>
+                <label class="eliminar-ticket">
+                    <input type="checkbox" name="eliminar[<?= (int)$ticket['id'] ?>]" value="1">
+                    Eliminar ticket
+                </label>
+                <?php endif; ?>
+            </div>
+        <?php endwhile; ?>
+        
+        <?php if ($esAdmin): ?>
+        <div class="form-actions">
+            <button type="submit" class="button">Guardar Cambios</button>
+        </div>
+        </form>
+        <?php endif; ?>
+        <?php else: ?>
+            <div class="no-tickets">No hay tickets disponibles</div>
+        <?php endif;
+
+        $conexion->close();
+        ?>
+
+  crear-ticket.php: |
+    <?php
     $conexion = new mysqli("db", "root", "root", "helpdesk");
 
     if ($conexion->connect_error) {
-        http_response_code(500);
-        echo json_encode(["error" => "Error de conexión: " . $conexion->connect_error]);
-        exit;
+        die("Error de conexión: " . $conexion->connect_error);
     }
 
-    // Obtener el método HTTP
-    $method = $_SERVER['REQUEST_METHOD'];
+    $asunto = $_POST['asunto'] ?? '';
+    $descripcion = $_POST['descripcion'] ?? '';
+    $origen = $_POST['origen'] ?? 'cliente';
 
-    // Manejar diferentes rutas y métodos
-    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $parts = explode('/', $path);
-    $endpoint = $parts[count($parts) - 1];
+    $stmt = $conexion->prepare("INSERT INTO tickets (asunto, descripcion, estado) VALUES (?, ?, 'Abierto')");
+    $stmt->bind_param("ss", $asunto, $descripcion);
+    $stmt->execute();
 
-    if ($endpoint === 'tickets') {
-        // Obtener ID si existe
-        $id = isset($parts[3]) ? intval($parts[3]) : null;
-        
-        switch ($method) {
-            case 'GET':
-                // Determinar si es admin (simulado)
-                $esAdmin = strpos($_SERVER['HTTP_REFERER'] ?? '', '/admin/') !== false;
-                
-                if ($id) {
-                    // Obtener un ticket específico
-                    $stmt = $conexion->prepare("SELECT * FROM tickets WHERE id = ?");
-                    $stmt->bind_param("i", $id);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    $ticket = $result->fetch_assoc();
-                    echo json_encode($ticket);
-                } else {
-                    // Obtener todos los tickets
-                    if ($esAdmin) {
-                        $sql = "SELECT * FROM tickets";
-                    } else {
-                        $sql = "SELECT * FROM tickets WHERE estado IN ('Abierto', 'En progreso')";
-                    }
-                    $resultado = $conexion->query($sql);
-                    $tickets = [];
-                    while ($fila = $resultado->fetch_assoc()) {
-                        $tickets[] = $fila;
-                    }
-                    echo json_encode($tickets);
-                }
-                break;
-                
-            case 'POST':
-                // Crear nuevo ticket
-                $data = json_decode(file_get_contents('php://input'), true);
-                $asunto = $data['asunto'];
-                $descripcion = $data['descripcion'];
-                
-                $stmt = $conexion->prepare("INSERT INTO tickets (asunto, descripcion) VALUES (?, ?)");
-                $stmt->bind_param("ss", $asunto, $descripcion);
-                
-                if ($stmt->execute()) {
-                    echo json_encode(["success" => true, "id" => $conexion->insert_id]);
-                } else {
-                    echo json_encode(["error" => $conexion->error]);
-                }
-                break;
-                
-            case 'PUT':
-                // Actualizar ticket (admin)
-                $data = json_decode(file_get_contents('php://input'), true);
-                $estado = $data['estado'];
-                
-                $stmt = $conexion->prepare("UPDATE tickets SET estado = ? WHERE id = ?");
-                $stmt->bind_param("si", $estado, $id);
-                
-                if ($stmt->execute()) {
-                    echo json_encode(["success" => true]);
-                } else {
-                    echo json_encode(["error" => $conexion->error]);
-                }
-                break;
-                
-            case 'DELETE':
-                // Eliminar ticket (admin)
-                $stmt = $conexion->prepare("DELETE FROM tickets WHERE id = ?");
-                $stmt->bind_param("i", $id);
-                
-                if ($stmt->execute()) {
-                    echo json_encode(["success" => true]);
-                } else {
-                    echo json_encode(["error" => $conexion->error]);
-                }
-                break;
-                
-            default:
-                http_response_code(405);
-                echo json_encode(["error" => "Método no permitido"]);
-        }
-    } else {
-        http_response_code(404);
-        echo json_encode(["error" => "Endpoint no encontrado"]);
-    }
-
-    $conexion->close();
+    header("Location: /$origen/");
+    exit;
     ?>
 
+  cargar-tickets.php: |
+    <?php
+    function conectarDB() {
+        $conexion = new mysqli('db', 'root', 'root', 'helpdesk');
+        if ($conexion->connect_error) {
+            die("<div class='error'>Error de conexión: " . $conexion->connect_error . "</div>");
+        }
+        return $conexion;
+    }
+
+    function mostrarTickets($esAdmin = false) {
+        $conexion = conectarDB();
+        
+        $sql = $esAdmin 
+            ? "SELECT * FROM tickets ORDER BY fecha_creacion DESC" 
+            : "SELECT * FROM tickets WHERE estado IN ('Abierto', 'En progreso') ORDER BY fecha_creacion DESC";
+        
+        $resultado = $conexion->query($sql);
+        $html = '';
+        
+        if ($resultado && $resultado->num_rows > 0) {
+            if ($esAdmin) {
+                $html .= '<form action="/backend/actualizar-tickets.php" method="post">';
+            }
+
+            while ($ticket = $resultado->fetch_assoc()) {
+                $html .= '<div class="ticket" data-estado="'.htmlspecialchars($ticket['estado']).'">';
+                $html .= '<h3>'.htmlspecialchars($ticket['asunto']).'</h3>';
+                $html .= '<p><strong>Descripción:</strong> '.nl2br(htmlspecialchars($ticket['descripcion'])).'</p>';
+                $html .= '<p><strong>Estado:</strong> ';
+                
+                if ($esAdmin) {
+                    $html .= '<select name="estados['.$ticket['id'].']">';
+                    $html .= '<option value="Abierto"'.($ticket['estado']=='Abierto'?' selected':'').'>Abierto</option>';
+                    $html .= '<option value="En progreso"'.($ticket['estado']=='En progreso'?' selected':'').'>En progreso</option>';
+                    $html .= '<option value="Cerrado"'.($ticket['estado']=='Cerrado'?' selected':'').'>Cerrado</option>';
+                    $html .= '</select>';
+                } else {
+                    $html .= htmlspecialchars($ticket['estado']);
+                }
+                
+                $html .= '</p>';
+                $html .= '<p><strong>Fecha creación:</strong> '.$ticket['fecha_creacion'].'</p>';
+                
+                if ($esAdmin) {
+                    $html .= '<label class="eliminar-ticket"><input type="checkbox" name="eliminar['.$ticket['id'].']" value="1"> Eliminar</label>';
+                }
+                
+                $html .= '</div>';
+            }
+
+            if ($esAdmin) {
+                $html .= '<div class="form-actions"><button type="submit" class="button">Guardar Cambios</button></div>';
+                $html .= '</form>';
+            }
+        } else {
+            $html = '<div class="no-tickets">No hay tickets disponibles</div>';
+        }
+
+        $conexion->close();
+        return $html;
+    }
+    ?>
 ---
 apiVersion: v1
 kind: ConfigMap

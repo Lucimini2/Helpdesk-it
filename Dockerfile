@@ -1,18 +1,11 @@
-# Imagen base con PHP-FPM
 FROM php:8.2-fpm
 
-# Instalar dependencias y extensión mysqli
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     zip \
-    && docker-php-ext-install mysqli pdo pdo_mysql
+    && docker-php-ext-install mysqli pdo pdo_mysql zip
 
-# Crear directorio para la aplicación
-RUN mkdir -p /var/www/html
-
-# Copiar el código PHP
-COPY backend/api.php /var/www/html/
-COPY backend/index.php /var/www/html/
-
-# Dar permisos adecuados
+RUN mkdir -p /var/www/html/{frontend,backend}
 RUN chown -R www-data:www-data /var/www/html
+
+WORKDIR /var/www/html
