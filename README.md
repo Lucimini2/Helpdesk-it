@@ -39,14 +39,22 @@ Plataforma profesional **HelpDesk** para gestión de incidencias IT con:
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) (v1.28+)
 
 ## Estructura del Proyecto 📂
-`helpdesk-it/`  
-├── `backend/` *(Lógica PHP)* → `api.php`, `cargar-tickets.php`, ...  
-├── `frontend/` → `admin/` (panel), `cliente/` (UI)  
-├── `docker/` → `nginx/default.conf`, `php/` (configs)  
-├── `k8s/` *(Kubernetes)* → `deployments/`, `services/`  
-├── `db/` → `init.sql` *(esquema DB)*  
-└── `docker-compose.yml` *(orquestación)*
-
+```plaintext
+helpdesk-it/
+│
+├── backend/          🖥️ Código PHP (API, gestión de tickets)  
+├── frontend/         🌐 Frontend dividido en:  
+│     ├─ admin/       🎛️ Panel administrativo  
+│     └─ cliente/     👤 Interfaz cliente  
+├── db/               🗄️ Scripts y esquema de la base de datos  
+├── docker/           🐳 Configuraciones para contenedores Docker  
+├── docker-compose.yml📦 Orquestación con Docker Compose  
+├── k8s/              ☸️ Manifiestos y configuraciones Kubernetes  
+├── Dockerfile*       🏗️ Definiciones para crear imágenes Docker  
+├── limpio.sh         🧹 Script para limpiar recursos temporales  
+├── start.sh          ▶️ Script para iniciar servicios  
+└── README.md         📖 Documentación del proyecto
+```
 
 ## Instalación 🚀
 
