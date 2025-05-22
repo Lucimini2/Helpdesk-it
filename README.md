@@ -57,20 +57,18 @@ Plataforma profesional **HelpDesk** para gestión de incidencias IT con:
 git clone https://github.com/tu-usuario/helpdesk-it.git
 cd helpdesk-it
 
-# 2. Iniciar servicios
-- minikube start --driver=docker
-- sudo docker-compose up -d --build
-- minikube addons enable ingress
-- kubectl apply -f k8s/.
+# 2. Ejecutar start.sh
+chmod +x start.sh
+./start.sh
 
-# 3. Subir imagenes
-- eval $(minikube docker-env)
-- docker-compose build
+# 3. Abrir los puertos
+kubectl port-forward svc/nginx-service 8080:80
+kubectl port-forward svc/phpmyadmin-service 8081:80
 
 # 4. Acceder a:
-# - Cliente: http://localhost:8080/cliente
-# - Admin: http://localhost:8080/admin
-# - phpMyAdmin: http://localhost:8083
+# - Cliente: http://127.0.0.1:33225/cliente/
+# - Admin: http://127.0.0.1:33225/admin/
+# - phpMyAdmin: http://127.0.0.1:8081/
 ```
 
 ## Uso del Sistema 💻 
