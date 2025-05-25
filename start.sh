@@ -1,51 +1,79 @@
 #!/bin/bash
 
-set -e  # Salir si hay error
+# Función para mostrar mensajes con formato
+function info() {
+    echo -e "\e[1;34mℹ️  $1\e[0m"
+}
 
-echo "=== Eliminando minikube y purgando todo..."
-minikube delete --all --purge || true
+function success() {
+    echo -e "\e[1;32m✅ $1\e[0m"
+}
 
-echo "=== Iniciando minikube..."
-minikube start
+function warn() {
+    echo -e "\e[1;33m⚠️  $1\e[0m"
+}
 
-echo "=== Construyendo imagen PHP custom localmente..."
-# Asegúrate de estar en el directorio raíz de tu proyecto donde está Dockerfile.php
-docker build -t helpdesk-php:custom -f Dockerfile.php .
+# 1. Limpieza inicial
+info "1/7 - Limpiando entorno Minikube..."
+minikube delete --all --purge
 
-echo "=== Aplicando manifiestos de Kubernetes..."
-kubectl apply -f k8s/mysql-deployment.yaml
-kubectl apply -f k8s/php-deployment.yaml
-kubectl apply -f k8s/nginx-deployment.yaml
-kubectl apply -f k8s/phpmyadmin-deployment.yaml
+# 2. Iniciar Minikube
+info "2/7 - Iniciando Minikube..."
+minikube start --driver=docker
+
+# 3. Configurar Docker (CRUCIAL - debe estar antes de construir imágenes)
+info "3/7 - Configurando Docker en Minikube..."
+eval $(minikube docker-env)
+
+# 4. Construir imágenes con tags específicos
+info "4/7 - Construyendo imágenes Docker..."
+docker build -t local/helpdesk-php:v1 -f Dockerfile.php .
+docker build -t local/helpdesk-nginx:v1 -f Dockerfile .
+
+# Verificar que las imágenes existen en Minikube
+info "  - Verificando imágenes en Minikube..."
+minikube ssh docker images | grep helpdesk
+
+# 5. Copiar archivos
+info "5/7 - Copiando archivos a Minikube..."
+minikube ssh "sudo mkdir -p /data/frontend /data/backend && sudo chmod -R 777 /data"
+
+info "  - Sincronizando frontend..."
+tar -czf - -C ./frontend . | minikube ssh "sudo tar -xzf - -C /data/frontend"
+
+info "  - Sincronizando backend..."
+tar -czf - -C ./backend . | minikube ssh "sudo tar -xzf - -C /data/backend"
+
+success "  Archivos copiados correctamente"
+
+# 6. Desplegar recursos (con modificación de imágenes)
+info "6/7 - Desplegando recursos en Kubernetes..."
+
+# Aplicar configmaps y servicios sin modificar
 kubectl apply -f k8s/configmaps.yaml
+kubectl apply -f k8s/mysql-deployment.yaml
+kubectl apply -f k8s/phpmyadmin-deployment.yaml
 
-echo "=== Esperando a que los pods estén en estado Running..."
-kubectl wait --for=condition=Ready pod -l app=mysql --timeout=120s
-kubectl wait --for=condition=Ready pod -l app=php --timeout=120s
-kubectl wait --for=condition=Ready pod -l app=nginx --timeout=120s
-kubectl wait --for=condition=Ready pod -l app=phpmyadmin --timeout=120s
+# Aplicar deployments con imágenes modificadas
+kubectl apply -f <(sed -E 's|image: helpdesk-php([^ ]*)?|image: local/helpdesk-php:v1|' k8s/php-deployment.yaml)
+kubectl apply -f <(sed -E 's|image: helpdesk-nginx([^ ]*)?|image: local/helpdesk-nginx:v1|' k8s/nginx-deployment.yaml)
 
-echo "=== Listado de pods actuales:"
-kubectl get pods
+# 7. Esperar a que los pods estén listos con mayor tiempo de espera
+info "7/7 - Esperando a que los pods estén listos..."
+kubectl wait --for=condition=Ready pods --all --timeout=600s
 
-echo "=== Servicios desplegados y puertos:"
-kubectl get svc
+# Verificar estado de los healthchecks
+info "Verificando healthchecks..."
+kubectl get pods -o wide
+kubectl describe pods | grep -A 10 "Events:"
 
+# Mostrar estado final
 echo ""
-echo "=== Instrucciones finales para acceder a tus servicios:"
-echo "1) En una terminal, corre para nginx:"
-echo "   kubectl port-forward svc/nginx-service 8080:80"
-echo "   y abre http://127.0.0.1:8080/cliente/ o /admin/"
+success "🎉 Despliegue completado!"
 echo ""
-echo "2) En otra terminal, corre para phpMyAdmin:"
-echo "   kubectl port-forward svc/phpmyadmin-service 8081:80"
-echo "   y abre http://127.0.0.1:8081/"
-echo "   Usuario: root"
-echo "   Contraseña: root"
+echo "Para acceder a los servicios:"
+echo "  Aplicación:    kubectl port-forward svc/nginx-service 8080:80"
+echo "  PHPMyAdmin:    kubectl port-forward svc/phpmyadmin-service 8081:80"
 echo ""
-
-echo "=== Si necesitas reiniciar un deployment después de cambios, usa:"
-echo "kubectl rollout restart deployment/<nombre>"
-echo "Ejemplo: kubectl rollout restart deployment/php"
-
-echo "=== ¡Listo! Proyecto desplegado y funcional."
+info "Estado actual del cluster:"
+kubectl get pods,svc

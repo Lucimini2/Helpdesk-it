@@ -17,31 +17,72 @@ spec:
           image: helpdesk-php:custom
           ports:
             - containerPort: 9000
+          env:
+            - name: DB_HOST
+              value: "mysql-service"  # Usando el nombre del servicio
+            - name: DB_USER
+              value: "root"
+            - name: DB_PASSWORD
+              value: "root"
+            - name: DB_NAME
+              value: "helpdesk"
           volumeMounts:
-            # Monta todo el frontend para que PHP acceda a /var/www/html/admin, /cliente, /shared
             - name: frontend-code
               mountPath: /var/www/html
-            # Monta el backend separado como antes
             - name: backend-code
               mountPath: /var/www/html/backend
+            - name: php-config
+              mountPath: /var/www/html/backend/actualizar-tickets.php
+              subPath: actualizar-tickets.php
+            - name: php-config
+              mountPath: /var/www/html/backend/cargar-tickets.php
+              subPath: cargar-tickets.php
+            - name: php-config
+              mountPath: /var/www/html/backend/crear-ticket.php
+              subPath: crear-ticket.php
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["php-fpm-healthcheck"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
-        # Monta frontend completo igual que en nginx
         - name: frontend-code
           hostPath:
-            path: /home/lucia/proyecto2/Helpdesk-it-main/frontend
+            path: /data/frontend  # Ruta dentro de Minikube
             type: Directory
-        # Monta backend
         - name: backend-code
           hostPath:
-            path: /home/lucia/proyecto2/Helpdesk-it-main/backend
+            path: /data/backend  # Ruta dentro de Minikube
             type: Directory
+        - name: php-config
+          configMap:
+            name: php-config
+            items:
+              - key: actualizar-tickets.php
+                path: actualizar-tickets.php
+              - key: cargar-tickets.php
+                path: cargar-tickets.php
+              - key: crear-ticket.php
+                path: crear-ticket.php
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: php
+  name: php-service
 spec:
-  type: ClusterIP
   selector:
     app: php
   ports:
