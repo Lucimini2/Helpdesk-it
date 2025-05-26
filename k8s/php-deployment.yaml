@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php
+  template:
+    metadata:
+      labels:
+        app: php
+    spec:
+      containers:
+        - name: php
+          image: helpdesk-php
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            # Monta todo el frontend para que PHP acceda a /var/www/html/admin, /cliente, /shared
+            - name: frontend-code
+              mountPath: /var/www/html
+            # Monta el backend separado como antes
+            - name: backend-code
+              mountPath: /var/www/html/backend
+      volumes:
+        # Monta frontend completo igual que en nginx
+        - name: frontend-code
+          hostPath:
+            path: /app/frontend
+            type: Directory
+        # Monta backend
+        - name: backend-code
+          hostPath:
+            path: /app/backend
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php
+spec:
+  type: ClusterIP
+  selector:
+    app: php
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000

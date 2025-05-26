@@ -39,22 +39,14 @@ Plataforma profesional **HelpDesk** para gestión de incidencias IT con:
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) (v1.28+)
 
 ## Estructura del Proyecto 📂
-```plaintext
-helpdesk-it/
-│
-├── backend/          🖥️ Código PHP (API, gestión de tickets)  
-├── frontend/         🌐 Frontend dividido en:  
-│     ├─ admin/       🎛️ Panel administrativo  
-│     └─ cliente/     👤 Interfaz cliente  
-├── db/               🗄️ Scripts y esquema de la base de datos  
-├── docker/           🐳 Configuraciones para contenedores Docker  
-├── docker-compose.yml📦 Orquestación con Docker Compose  
-├── k8s/              ☸️ Manifiestos y configuraciones Kubernetes  
-├── Dockerfile*       🏗️ Definiciones para crear imágenes Docker  
-├── limpio.sh         🧹 Script para limpiar recursos temporales  
-├── start.sh          ▶️ Script para iniciar servicios  
-└── README.md         📖 Documentación del proyecto
-```
+`helpdesk-it/`  
+├── `backend/` *(Lógica PHP)* → `api.php`, `cargar-tickets.php`, ...  
+├── `frontend/` → `admin/` (panel), `cliente/` (UI)  
+├── `docker/` → `nginx/default.conf`, `php/` (configs)  
+├── `k8s/` *(Kubernetes)* → `deployments/`, `services/`  
+├── `db/` → `init.sql` *(esquema DB)*  
+└── `docker-compose.yml` *(orquestación)*
+
 
 ## Instalación 🚀
 
@@ -65,18 +57,20 @@ helpdesk-it/
 git clone https://github.com/tu-usuario/helpdesk-it.git
 cd helpdesk-it
 
-# 2. Ejecutar start.sh
-chmod +x start.sh
-./start.sh
+# 2. Iniciar servicios
+- minikube start --driver=docker
+- sudo docker-compose up -d --build
+- minikube addons enable ingress
+- kubectl apply -f k8s/.
 
-# 3. Abrir los puertos
-kubectl port-forward svc/nginx-service 8080:80
-kubectl port-forward svc/phpmyadmin-service 8081:80
+# 3. Subir imagenes
+- eval $(minikube docker-env)
+- docker-compose build
 
 # 4. Acceder a:
-# - Cliente: http://127.0.0.1:33225/cliente/
-# - Admin: http://127.0.0.1:33225/admin/
-# - phpMyAdmin: http://127.0.0.1:8081/
+# - Cliente: http://localhost:8080/cliente
+# - Admin: http://localhost:8080/admin
+# - phpMyAdmin: http://localhost:8083
 ```
 
 ## Uso del Sistema 💻 

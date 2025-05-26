@@ -1,0 +1,462 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configmap
+data:
+  default.conf: |
+    server {
+    listen 80;
+    server_name localhost;
+
+    root /var/www/html;
+    index index.php index.html index.htm;
+
+    # Redirección por defecto al panel de admin
+    location = / {
+        return 302 /admin/;
+    }
+
+    # Sección para la interfaz de administración
+    location /admin/ {
+        index index.php index.html;
+        try_files $uri $uri/ /admin/index.php?$args;
+    }
+
+    # Sección para la interfaz de cliente
+    location /cliente/ {
+        index index.php index.html;
+        try_files $uri $uri/ /cliente/index.php?$args;
+    }
+
+    # Ruta para llamadas API (backend PHP)
+    location ~ ^/api/(.+\.php)$ {
+        include fastcgi_params;
+        fastcgi_pass php:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME /var/www/html/backend/$1;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    # Archivos PHP generales (evitar procesar cosas que no estén en /api/)
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass php:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    # Archivos estáticos (cache)
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg)$ {
+        expires max;
+        log_not_found off;
+    }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-admin-config
+data:
+  index.php: |
+    <?php
+    require_once '/var/www/html/backend/cargar-tickets.php';
+    ?>
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Panel Admin - HelpDesk</title>
+        <link rel="stylesheet" href="/admin/css/styles.css">
+    </head>
+    <body>
+        <header>
+            <h1>Panel de Administración</h1>
+            <p>Gestión completa de tickets</p>
+        </header>
+
+        <div class="admin-controls">
+            <a href="/admin/nuevo-ticket.php" class="button">Nuevo Ticket</a>
+        </div>
+
+        <div class="tickets-container">
+            <?php echo mostrarTickets(true); ?>
+        </div>
+    </body>
+    </html>
+  styles.css: |
+    @import '../shared/css/common.css';
+
+    .admin-controls {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding: 0 1rem;
+    }
+
+    .tickets-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    .ticket {
+        background-color: white;
+        border-left: 4px solid #ddd;
+        border-radius: 4px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .ticket[data-estado="Abierto"] {
+        border-left-color: #e74c3c;
+    }
+
+    .ticket[data-estado="En progreso"] {
+        border-left-color: #f39c12;
+    }
+
+    .ticket[data-estado="Cerrado"] {
+        border-left-color: #2ecc71;
+    }
+
+    .ticket h3 {
+        color: #2c3e50;
+        margin-bottom: 0.8rem;
+    }
+
+    .ticket p {
+        margin-bottom: 0.5rem;
+    }
+
+    .ticket select {
+        padding: 0.3rem 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: white;
+    }
+
+    .eliminar-ticket {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        background-color: #f8f8f8;
+        border-radius: 4px;
+    }
+
+    .eliminar-ticket input {
+        margin-right: 0.5rem;
+    }
+
+    .form-actions {
+        margin-top: 1.5rem;
+        text-align: right;
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-cliente-config
+data:
+  index.php: |
+    <?php
+    require_once '/var/www/html/backend/cargar-tickets.php';
+    ?>
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Soporte Cliente - HelpDesk</title>
+        <link rel="stylesheet" href="/cliente/css/styles.css">
+    </head>
+    <body>
+        <header>
+            <h1>Soporte Técnico</h1>
+            <p>Sistema de gestión de tickets</p>
+        </header>
+
+        <div class="cliente-controls">
+            <a href="/cliente/nuevo-ticket.php" class="button">Nuevo Ticket</a>
+        </div>
+
+        <div class="tickets-container">
+            <?php echo mostrarTickets(false); ?>
+        </div>
+    </body>
+    </html>
+  styles.css: |
+    @import '../shared/css/common.css';
+
+    .cliente-controls {
+        text-align: center;
+        margin: 2rem 0;
+    }
+
+    .tickets-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    .ticket {
+        background-color: white;
+        border-left: 4px solid #3498db;
+        border-radius: 4px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .ticket h3 {
+        color: #2c3e50;
+        margin-bottom: 0.8rem;
+    }
+
+    .ticket p {
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+    }
+
+    /* Estados visuales */
+    .ticket[data-estado="Abierto"] {
+        border-left-color: #e74c3c;
+    }
+
+    .ticket[data-estado="En progreso"] {
+        border-left-color: #f39c12;
+    }
+
+    .ticket[data-estado="Cerrado"] {
+        border-left-color: #2ecc71;
+        opacity: 0.8;
+    }
+
+    .no-tickets {
+        text-align: center;
+        padding: 2rem;
+        color: #7f8c8d;
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: php-config
+data:
+  actualizar-tickets.php: |
+        <?php
+        $conexion = new mysqli("db", "root", "root", "helpdesk");
+
+        if ($conexion->connect_error) {
+            die("Error de conexión: " . $conexion->connect_error);
+        }
+
+        // Procesar actualizaciones de estado
+        if (isset($_POST['estados'])) {
+            foreach ($_POST['estados'] as $id => $estado) {
+                $stmt = $conexion->prepare("UPDATE tickets SET estado = ?, fecha_actualizacion = NOW() WHERE id = ?");
+                $stmt->bind_param("si", $estado, $id);
+                $stmt->execute();
+            }
+        }
+
+        // Procesar eliminaciones
+        if (isset($_POST['eliminar'])) {
+            foreach ($_POST['eliminar'] as $id => $valor) {
+                if ($valor == '1') {
+                    $stmt = $conexion->prepare("DELETE FROM tickets WHERE id = ?");
+                    $stmt->bind_param("i", $id);
+                    $stmt->execute();
+                }
+            }
+        }
+
+        header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '/admin/'));
+        exit;
+        ?>
+
+        cargar-tickets.php: |
+        <?php
+        header('Content-Type: text/html; charset=utf-8');
+
+        $conexion = new mysqli(
+        getenv('DB_HOST'), 
+        getenv('DB_USER'), 
+        getenv('DB_PASSWORD'), 
+        getenv('DB_NAME')
+        );
+
+        if ($conexion->connect_error) {
+            die("<div class='error'>Error de conexión: " . $conexion->connect_error . "</div>");
+        }
+
+        $esAdmin = strpos($_SERVER['REQUEST_URI'], '/admin/') !== false;
+        $sql = $esAdmin 
+        ? "SELECT * FROM tickets ORDER BY fecha_creacion DESC" 
+        : "SELECT * FROM tickets WHERE estado IN ('Abierto', 'En progreso') ORDER BY fecha_creacion DESC";
+
+        $resultado = $conexion->query($sql);
+
+        if ($resultado->num_rows > 0): ?>
+        <?php if ($esAdmin): ?>
+        <form action="/backend/actualizar-tickets.php" method="post">
+        <?php endif; ?>
+
+        <?php while ($ticket = $resultado->fetch_assoc()): ?>
+            <div class="ticket" data-estado="<?= htmlspecialchars($ticket['estado']) ?>">
+                <h3><?= htmlspecialchars($ticket['asunto']) ?></h3>
+                <p><strong>Descripción:</strong> <?= nl2br(htmlspecialchars($ticket['descripcion'])) ?></p>
+                <p><strong>Estado:</strong>
+                    <?php if ($esAdmin): ?>
+                    <select name="estados[<?= (int)$ticket['id'] ?>]">
+                        <?php foreach (['Abierto', 'En progreso', 'Cerrado'] as $estado): ?>
+                        <option value="<?= $estado ?>" <?= $ticket['estado'] === $estado ? 'selected' : '' ?>>
+                            <?= $estado ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php else: ?>
+                    <?= htmlspecialchars($ticket['estado']) ?>
+                    <?php endif; ?>
+                </p>
+                <p><strong>Fecha creación:</strong> <?= $ticket['fecha_creacion'] ?></p>
+                <?php if ($ticket['fecha_actualizacion'] && $ticket['fecha_actualizacion'] != $ticket['fecha_creacion']): ?>
+                <p><strong>Última actualización:</strong> <?= $ticket['fecha_actualizacion'] ?></p>
+                <?php endif; ?>
+                
+                <?php if ($esAdmin): ?>
+                <label class="eliminar-ticket">
+                    <input type="checkbox" name="eliminar[<?= (int)$ticket['id'] ?>]" value="1">
+                    Eliminar ticket
+                </label>
+                <?php endif; ?>
+            </div>
+        <?php endwhile; ?>
+        
+        <?php if ($esAdmin): ?>
+        <div class="form-actions">
+            <button type="submit" class="button">Guardar Cambios</button>
+        </div>
+        </form>
+        <?php endif; ?>
+        <?php else: ?>
+            <div class="no-tickets">No hay tickets disponibles</div>
+        <?php endif;
+
+        $conexion->close();
+        ?>
+
+  crear-ticket.php: |
+    <?php
+    $conexion = new mysqli("db", "root", "root", "helpdesk");
+
+    if ($conexion->connect_error) {
+        die("Error de conexión: " . $conexion->connect_error);
+    }
+
+    $asunto = $_POST['asunto'] ?? '';
+    $descripcion = $_POST['descripcion'] ?? '';
+    $origen = $_POST['origen'] ?? 'cliente';
+
+    $stmt = $conexion->prepare("INSERT INTO tickets (asunto, descripcion, estado) VALUES (?, ?, 'Abierto')");
+    $stmt->bind_param("ss", $asunto, $descripcion);
+    $stmt->execute();
+
+    header("Location: /$origen/");
+    exit;
+    ?>
+
+  cargar-tickets.php: |
+    <?php
+    function conectarDB() {
+        $conexion = new mysqli('db', 'root', 'root', 'helpdesk');
+        if ($conexion->connect_error) {
+            die("<div class='error'>Error de conexión: " . $conexion->connect_error . "</div>");
+        }
+        return $conexion;
+    }
+
+    function mostrarTickets($esAdmin = false) {
+        $conexion = conectarDB();
+        
+        $sql = $esAdmin 
+            ? "SELECT * FROM tickets ORDER BY fecha_creacion DESC" 
+            : "SELECT * FROM tickets WHERE estado IN ('Abierto', 'En progreso') ORDER BY fecha_creacion DESC";
+        
+        $resultado = $conexion->query($sql);
+        $html = '';
+        
+        if ($resultado && $resultado->num_rows > 0) {
+            if ($esAdmin) {
+                $html .= '<form action="/backend/actualizar-tickets.php" method="post">';
+            }
+
+            while ($ticket = $resultado->fetch_assoc()) {
+                $html .= '<div class="ticket" data-estado="'.htmlspecialchars($ticket['estado']).'">';
+                $html .= '<h3>'.htmlspecialchars($ticket['asunto']).'</h3>';
+                $html .= '<p><strong>Descripción:</strong> '.nl2br(htmlspecialchars($ticket['descripcion'])).'</p>';
+                $html .= '<p><strong>Estado:</strong> ';
+                
+                if ($esAdmin) {
+                    $html .= '<select name="estados['.$ticket['id'].']">';
+                    $html .= '<option value="Abierto"'.($ticket['estado']=='Abierto'?' selected':'').'>Abierto</option>';
+                    $html .= '<option value="En progreso"'.($ticket['estado']=='En progreso'?' selected':'').'>En progreso</option>';
+                    $html .= '<option value="Cerrado"'.($ticket['estado']=='Cerrado'?' selected':'').'>Cerrado</option>';
+                    $html .= '</select>';
+                } else {
+                    $html .= htmlspecialchars($ticket['estado']);
+                }
+                
+                $html .= '</p>';
+                $html .= '<p><strong>Fecha creación:</strong> '.$ticket['fecha_creacion'].'</p>';
+                
+                if ($esAdmin) {
+                    $html .= '<label class="eliminar-ticket"><input type="checkbox" name="eliminar['.$ticket['id'].']" value="1"> Eliminar</label>';
+                }
+                
+                $html .= '</div>';
+            }
+
+            if ($esAdmin) {
+                $html .= '<div class="form-actions"><button type="submit" class="button">Guardar Cambios</button></div>';
+                $html .= '</form>';
+            }
+        } else {
+            $html = '<div class="no-tickets">No hay tickets disponibles</div>';
+        }
+
+        $conexion->close();
+        return $html;
+    }
+    ?>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-config
+data:
+  init.sql: |
+   -- Crear base de datos si no existe
+    CREATE DATABASE IF NOT EXISTS helpdesk;
+    USE helpdesk;
+
+    -- Crear tabla de tickets
+    CREATE TABLE IF NOT EXISTS tickets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    asunto VARCHAR(100) NOT NULL,
+    descripcion TEXT NOT NULL,
+    estado ENUM('Abierto', 'En progreso', 'Cerrado') DEFAULT 'Abierto',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    -- Insertar algunos tickets de prueba
+    INSERT INTO tickets (asunto, descripcion, estado) VALUES
+    ('Error de red', 'El equipo no puede conectarse a la red WiFi.', 'Abierto'),
+    ('Fallo en impresora', 'La impresora de la oficina 2 muestra error de papel atascado.', 'En progreso'),
+    ('Actualización de software', 'Solicito actualización del antivirus.', 'Cerrado');
