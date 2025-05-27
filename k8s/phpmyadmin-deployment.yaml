@@ -17,7 +17,7 @@ spec:
         image: phpmyadmin/phpmyadmin
         env:
         - name: PMA_HOST
-          value: "mysql-service"
+          value: "db"
         - name: MYSQL_ROOT_PASSWORD
           value: "root"
         ports:
