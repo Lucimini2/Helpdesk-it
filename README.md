@@ -118,11 +118,14 @@ cd helpdesk-it
 chmod +x start.sh
 ./start.sh
 
-# Ejecutar en terminales separadas
+# 3. Verificar pods
+kubectl get pods
+
+# 4. Ejecutar en terminales separadas
 kubectl port-forward svc/nginx-service 8080:80
 kubectl port-forward svc/phpmyadmin-service 8081:80
 
-# 4. Acceder a la aplicación
+# 5. Acceder a la aplicación
 # - Cliente: http://localhost:8080/cliente
 # - Admin: http://localhost:8080/admin
 # - phpMyAdmin: http://localhost:8081
@@ -178,19 +181,11 @@ exit
 
 ```bash
 # Crear espacio de monitorización
-kubectl create namespace monitoring
+chmod +x monitoring.sh 
+./monitoring.sh 
 
-# Instalar helm:
-curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-
-# Agregar repositorio y desplegar stack
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-
-helm install prometheus-stack prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --set prometheus.prometheusSpec.maximumStartupDurationSeconds=120
-
+# Comprobar:
+kubectl get pods -n monitoring
 
 # Acceder a Grafana:
 kubectl port-forward -n monitoring svc/prometheus-stack-grafana 3000:80
@@ -198,7 +193,7 @@ kubectl port-forward -n monitoring svc/prometheus-stack-grafana 3000:80
 http://localhost:3000
 # Usuario: 
 admin
-# Contraseña:
+# Contraseña: prom-operator
 kubectl get secret --namespace monitoring prometheus-stack-grafana \
   -o jsonpath="{.data.admin-password}" | base64 --decode && echo
 
