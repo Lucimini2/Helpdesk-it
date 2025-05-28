@@ -88,6 +88,7 @@ Helpdesk-it/
 │   ├── php-deployment.yaml
 │   └── phpmyadmin-deployment.yaml
 ├── limpio.sh
+├── monitoring.sh
 ├── mysql-backups/
 ├── start.sh
 └── verificar_backups.sh
