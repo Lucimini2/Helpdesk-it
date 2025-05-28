@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup
+spec:
+  schedule: "*/30 * * * *"  # Cada 30 minutos
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: backup
+              image: mysql:5.7
+              env:
+                - name: MYSQL_PWD
+                  value: "root"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "🕒 Fecha y hora del contenedor:"
+                  date
+
+                  echo "🔍 Probando conexión a MySQL..."
+                  mysqladmin ping -h db -u root --password=root || exit 1
+
+                  echo "📦 Realizando mysqldump..."
+                  mysqldump -h db -u root --password=root helpdesk > /backup/helpdesk-$(date +%F-%H-%M).sql 2>/backup/error.log
+
+                  echo "✅ Backup completado."
+                  ls -lh /backup
+                  echo "📝 Errores (si hay):"
+                  cat /backup/error.log || echo "Sin errores."
+              volumeMounts:
+                - name: backup-volume
+                  mountPath: /backup
+          restartPolicy: OnFailure
+          volumes:
+            - name: backup-volume
+              hostPath:
+                path: /mnt/data/mysql-backups
+                type: DirectoryOrCreate

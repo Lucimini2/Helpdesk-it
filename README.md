@@ -132,37 +132,47 @@ kubectl port-forward svc/phpmyadmin-service 8081:80
 
 ```bash
 #  Crear y preparar directorio
-sudo mkdir -p /mnt/data/mysql-backups
-sudo chmod 777 /mnt/data/mysql-backups
-
-# Aplicar CronJob en Kubernetes
-kubectl apply -f k8s/mysql-backup-cronjob.yaml
-minikube mount ~/proyecto/Helpdesk-it/mysql-backups:/backups
-
-#  Comprobar desde Minikube
 minikube ssh
 sudo mkdir -p /mnt/data/mysql-backups
 sudo chown -R docker:docker /mnt/data/mysql-backups
 exit
 
+# Aplicar CronJob en Kubernetes
+kubectl apply -f k8s/mysql-backup-cronjob.yaml
+
+# Prueba 
+kubectl create job --from=cronjob/mysql-backup mysql-backup-test
+
 # Logs de backup
 kubectl logs job/mysql-backup-test
+
+# Copiar backup al directorio del proyecto
+./copiar_backups.sh 
+
+# Verificar backups
+./verificar_backups.sh 
 
 # Programar copias/validaciones con cron
 crontab -e
 
 # Agrega al final:
 
-# Copia los backups todos los días a las 02:00 AM
-0 2 * * * /home/lucia/proyecto/Helpdesk-it/copiar_backups.sh >> /home/lucia/proyecto/Helpdesk-it/copiar_backups.log 2>&1
+    # Copia los backups todos los días a las 02:00 AM
+    0 2 * * * /home/lucia/proyecto/Helpdesk-it/copiar_backups.sh >> /home/lucia/proyecto/Helpdesk-it/copiar_backups.log 2>&1
 
-# Verifica los backups todos los días a las 02:05 AM
-5 2 * * * /home/lucia/proyecto/Helpdesk-it/verificar_backups.sh >> /home/lucia/proyecto/Helpdesk-it/verificar_backups.log 2>&1
+    # Verifica los backups todos los días a las 02:05 AM
+    5 2 * * * /home/lucia/proyecto/Helpdesk-it/verificar_backups.sh >> /home/lucia/proyecto/Helpdesk-it/verificar_backups.log 2>&1
 
-# Verifica: 
+
+# Comprobaciones con: 
 crontab -l
 systemctl status cron
 ls -lh /home/lucia/proyecto/Helpdesk-it/mysql-backups
+kubectl get jobs
+
+minikube ssh
+ls -lh /mnt/data/mysql-backups
+exit
 ```
 ### 3. Monitorización con Grafana + Prometheus 
 
