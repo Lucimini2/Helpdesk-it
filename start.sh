@@ -10,7 +10,7 @@ echo -e "${YELLOW}=== Script de despliegue Helpdesk-IT en Minikube ===${NC}"
 
 # 1. Limpieza total
 echo -e "\n${GREEN}[1/8] Limpiando entorno Minikube...${NC}"
-minikube delete --all --purge
+# minikube delete --all --purge
 
 # 2. Iniciar cluster con montaje completo en /app
 echo -e "\n${GREEN}[2/8] Iniciando cluster Minikube con montaje /app...${NC}"
