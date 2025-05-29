@@ -118,6 +118,7 @@ cd helpdesk-it
 # 2. Ejecutar entorno inicial
 chmod +x start.sh
 ./start.sh
+# (en caso de querer hacer una limpieza del entorno descomenta en start.sh: # minikube delete --all --purge)
 
 # 3. Verificar pods
 kubectl get pods
